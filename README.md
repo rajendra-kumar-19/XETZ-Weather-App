@@ -8,5 +8,5 @@ Open your browser and visit:
 http://127.0.0.1:8000/
 
 
-🎥 Demo Video
+🎥 Demo Video of the App
 https://drive.google.com/file/d/1LrzWLu6rpEeGsr__MA4qyTzDaEZtoH1K/view?usp=sharing
