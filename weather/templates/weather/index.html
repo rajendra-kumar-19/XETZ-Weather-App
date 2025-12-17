@@ -1,0 +1,121 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AeroCast</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="stylesheet" href="{% static 'weather/style.css' %}">
+</head>
+
+<body>
+
+<div class="card search-card">
+
+    <!-- BRAND -->
+    <div class="brand cyber-text">AeroCast</div>
+
+    <h2 class="city">Smart Weather Forecast</h2>
+    <small class="time">Search a city or use your live location</small>
+
+    {% if error %}
+        <div class="box error-box">
+            ❌ {{ error }}
+        </div>
+    {% endif %}
+
+    <!-- SEARCH FORM -->
+    <form method="POST" id="weatherForm">
+        {% csrf_token %}
+
+        <input
+            type="text"
+            id="cityInput"
+            name="city"
+            placeholder="Enter city name"
+            autocomplete="off"
+        >
+
+        <!-- hidden lat/lon for location -->
+        <input type="hidden" name="lat" id="lat">
+        <input type="hidden" name="lon" id="lon">
+
+        <!-- suggestions -->
+        <div id="suggestions" class="suggest-box"></div>
+
+        <button type="submit" class="primary-btn">
+            🔍 Get Weather
+        </button>
+    </form>
+
+    <!-- LOCATION BUTTON -->
+    <button class="secondary-btn" onclick="useMyLocation()">
+        📍 Use my location
+    </button>
+
+    <!-- LOADING SPINNER -->
+    <div id="loader" class="loader hidden"></div>
+
+</div>
+
+<footer class="footer">© 2025 Raja</footer>
+
+<script>
+/* ================= AUTOCOMPLETE ================= */
+const input = document.getElementById("cityInput");
+const box = document.getElementById("suggestions");
+
+input.addEventListener("input", () => {
+    const q = input.value.trim();
+    if (q.length < 2) {
+        box.innerHTML = "";
+        return;
+    }
+
+    fetch(`/suggest/?q=${q}`)
+        .then(res => res.json())
+        .then(data => {
+            box.innerHTML = "";
+            data.forEach(c => {
+                const div = document.createElement("div");
+                div.textContent = c.name;
+                div.onclick = () => {
+                    input.value = c.name;
+                    box.innerHTML = "";
+                };
+                box.appendChild(div);
+            });
+        });
+});
+
+/* ================= USE MY LOCATION ================= */
+function useMyLocation() {
+    if (!navigator.geolocation) {
+        alert("Geolocation not supported");
+        return;
+    }
+
+    document.getElementById("loader").classList.remove("hidden");
+
+    navigator.geolocation.getCurrentPosition(
+        pos => {
+            document.getElementById("lat").value = pos.coords.latitude;
+            document.getElementById("lon").value = pos.coords.longitude;
+            document.getElementById("weatherForm").submit();
+        },
+        () => {
+            document.getElementById("loader").classList.add("hidden");
+            alert("Location access denied");
+        }
+    );
+}
+
+/* ================= SHOW LOADER ON SUBMIT ================= */
+document.getElementById("weatherForm").addEventListener("submit", () => {
+    document.getElementById("loader").classList.remove("hidden");
+});
+</script>
+
+</body>
+</html>

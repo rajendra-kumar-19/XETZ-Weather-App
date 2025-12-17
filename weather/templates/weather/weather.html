@@ -1,0 +1,360 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AeroCast – {{ city }}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="{% static 'weather/style.css' %}">
+
+<style>
+/* ================= VALUE ANIMATION ================= */
+.number {
+    display: inline-block;
+    transition: transform 0.35s ease, opacity 0.35s ease;
+}
+.flip-out { transform: translateY(-10px); opacity: 0; }
+.flip-in  { transform: translateY(10px); opacity: 0; }
+
+.pulse {
+    animation: pulseGlow 0.7s ease;
+}
+@keyframes pulseGlow {
+    50% { box-shadow: 0 0 18px rgba(34,211,238,0.7); }
+}
+
+/* ================= METRIC BOX ================= */
+.metric {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.metric .icon {
+    font-size: 18px;
+    opacity: 0.85;
+}
+
+.metric .value {
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1;
+}
+
+.metric .label {
+    font-size: 11px;
+    opacity: 0.55;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+}
+
+/* ================= WIND TREE ================= */
+.wind-box {
+    position: relative;
+    height: 80px;
+    overflow: hidden;
+}
+
+.tree {
+    font-size: 34px;
+    transform-origin: bottom center;
+    animation: sway ease-in-out infinite;
+}
+
+@keyframes sway {
+    0% { transform: rotate(0deg); }
+    25% { transform: rotate(var(--sway)); }
+    50% { transform: rotate(0deg); }
+    75% { transform: rotate(calc(var(--sway) * -1)); }
+    100% { transform: rotate(0deg); }
+}
+
+/* ================= LEAF FLOW ================= */
+.leaf {
+    position: absolute;
+    font-size: 12px;
+    opacity: 0.25;
+    animation: leafFlow linear infinite;
+}
+@keyframes leafFlow {
+    0%   { transform: translateX(-20px) translateY(0) rotate(0deg); opacity: 0; }
+    15%  { opacity: 0.4; }
+    50%  { transform: translateX(60%) translateY(-6px) rotate(90deg); }
+    100% { transform: translateX(140%) translateY(6px) rotate(180deg); opacity: 0; }
+}
+
+/* ================= AQI (PREMIUM) ================= */
+.aqi-card {
+    margin-top: 14px;
+    padding: 14px;
+    border-radius: 14px;
+    background: linear-gradient(
+        135deg,
+        rgba(255,255,255,0.08),
+        rgba(255,255,255,0.02)
+    );
+    border: 1px solid rgba(255,255,255,0.14);
+    box-shadow: 0 0 18px rgba(0,0,0,0.4);
+}
+
+.aqi-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.aqi-title {
+    font-size: 11px;
+    letter-spacing: 0.8px;
+    opacity: 0.6;
+}
+
+.aqi-badge {
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    background: {{ aqi_color }};
+    color: #000;
+}
+
+.aqi-value {
+    margin-top: 8px;
+    font-size: 30px;
+    font-weight: 700;
+}
+
+.aqi-bar {
+    margin-top: 10px;
+    height: 6px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.aqi-fill {
+    height: 100%;
+    width: calc({{ aqi_index }} * 20%);
+    background: {{ aqi_color }};
+    border-radius: 999px;
+}
+
+/* ================= MAP ================= */
+.map-container {
+    position: relative;
+    z-index: 10;
+    margin-top: 16px;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid rgba(34,211,238,0.35);
+}
+.map-container iframe {
+    width: 100%;
+    height: 220px;
+    border: 0;
+}
+</style>
+</head>
+
+<body class="{{ bg }}">
+
+<div class="card">
+
+<div class="brand cyber-text">AeroCast</div>
+<h2 class="city">{{ city }}</h2>
+<small class="time">🕒 {{ local_time }}</small>
+
+<div>
+    <button class="unit-btn" onclick="toggleUnit()">🌡️ °C / °F</button>
+</div>
+
+<div class="icon animated-icon">{{ icon }}</div>
+
+<!-- DASHBOARD -->
+<div class="dashboard">
+
+    <!-- TEMP -->
+    <div class="box metric" id="tempBox">
+        <div class="icon">🌡️</div>
+        <div class="value">
+            <span id="temp" class="number" data-c="{{ temp }}">{{ temp }}</span>
+            <span id="unitLabel">°C</span>
+        </div>
+        <div class="label">Temperature</div>
+    </div>
+
+    <!-- HUMIDITY -->
+    <div class="box metric">
+        <div class="icon">💧</div>
+        <div class="value">{{ humidity }}%</div>
+        <div class="label">Humidity</div>
+    </div>
+
+    <!-- WIND -->
+    <div class="box metric wind-box" id="windBox">
+        <div class="tree" id="tree">🌳</div>
+        <div class="value">{{ wind }} km/h</div>
+        <div class="label">Wind</div>
+    </div>
+
+    <!-- FEELS LIKE -->
+    <div class="box metric" id="feelsBox">
+        <div class="icon">🤒</div>
+        <div class="value">
+            <span id="feels" class="number" data-c="{{ feels }}">{{ feels }}</span>
+            <span id="unitLabel2">°C</span>
+        </div>
+        <div class="label">Feels Like</div>
+    </div>
+
+</div>
+
+<!-- HEALTH TIP PANEL -->
+<div class="box tip-box">
+    <div class="tip-icon">💡</div>
+    <div class="tip-text" id="healthTip">
+        Loading health tip...
+    </div>
+</div>
+
+
+<!-- AQI PANEL -->
+<div class="aqi-card">
+    <div class="aqi-head">
+        <div class="aqi-title">AIR QUALITY</div>
+        <div class="aqi-badge">{{ aqi_text }}</div>
+    </div>
+
+    <div class="aqi-value">
+        {{ us_aqi }}
+        <span style="font-size:14px;opacity:.6;">US AQI</span>
+    </div>
+
+    <div class="aqi-bar">
+        <div class="aqi-fill"></div>
+    </div>
+
+    <small style="opacity:.6;">PM2.5 based • Scale 0–500</small>
+</div>
+
+<!-- MAP -->
+<div class="map-container">
+<iframe
+src="https://www.google.com/maps?q={{ lat }},{{ lon }}&z=15&t=k&output=embed"
+loading="lazy">
+</iframe>
+</div>
+
+<a href="/" class="back-btn">🔙 Back</a>
+</div>
+
+<footer class="footer">© 2025 Raja</footer>
+
+<script>
+/* ================= UNIT SWITCH ================= */
+let isCelsius = true;
+
+function flip(el, v){
+    el.classList.add("flip-out");
+    setTimeout(()=>{
+        el.textContent = v;
+        el.classList.remove("flip-out");
+        el.classList.add("flip-in");
+        setTimeout(()=>el.classList.remove("flip-in"),60);
+    },180);
+}
+
+function toggleUnit(){
+    const t = document.getElementById("temp");
+    const f = document.getElementById("feels");
+    const tc = parseFloat(t.dataset.c);
+    const fc = parseFloat(f.dataset.c);
+
+    if(isCelsius){
+        flip(t, Math.round(tc * 9/5 + 32));
+        flip(f, Math.round(fc * 9/5 + 32));
+        unitLabel.textContent = unitLabel2.textContent = "°F";
+    } else {
+        flip(t, tc);
+        flip(f, fc);
+        unitLabel.textContent = unitLabel2.textContent = "°C";
+    }
+    isCelsius = !isCelsius;
+}
+
+/* ================= WIND ================= */
+const wind = {{ wind }};
+const tree = document.getElementById("tree");
+const box = document.getElementById("windBox");
+
+let sway = 3, speed = 3, leaves = 2;
+if (wind > 10) { sway = 6; speed = 2.5; leaves = 4; }
+if (wind > 20) { sway = 10; speed = 2; leaves = 6; }
+if (wind > 30) { sway = 16; speed = 1.5; leaves = 9; }
+
+tree.style.setProperty("--sway", sway + "deg");
+tree.style.animationDuration = speed + "s";
+
+for (let i = 0; i < leaves; i++) {
+    const l = document.createElement("div");
+    l.className = "leaf";
+    l.textContent = "🍃";
+    l.style.top = (40 + Math.random() * 30) + "%";
+    l.style.animationDuration = (2 + Math.random() * 2) + "s";
+    box.appendChild(l);
+}
+/* ================= HEALTH TIPS ================= */
+const aqiIndex = {{ aqi_index }};
+const tempVal = {{ temp }};
+
+const healthTips = {
+    good: [
+        "Air quality is excellent. Enjoy outdoor activities.",
+        "Perfect time to open windows for fresh air.",
+        "Great conditions for exercise and walking."
+    ],
+    moderate: [
+        "Sensitive people should limit long outdoor activity.",
+        "Outdoor activity is fine, but take breaks.",
+        "Stay hydrated when spending time outside."
+    ],
+    poor: [
+        "Avoid outdoor workouts today.",
+        "Wear a mask if you go outside.",
+        "Keep windows closed to reduce pollution exposure."
+    ],
+    heat: [
+        "Drink water frequently to avoid dehydration.",
+        "Avoid direct sunlight during peak hours.",
+        "Wear light and breathable clothing."
+    ],
+    cold: [
+        "Dress in layers to stay warm.",
+        "Warm drinks help maintain body temperature.",
+        "Avoid early morning cold exposure."
+    ]
+};
+
+function randomTip(list) {
+    return list[Math.floor(Math.random() * list.length)];
+}
+
+let tipText = "";
+
+/* AQI based tip */
+if (aqiIndex <= 2) tipText = randomTip(healthTips.good);
+else if (aqiIndex === 3) tipText = randomTip(healthTips.moderate);
+else tipText = randomTip(healthTips.poor);
+
+/* Temperature override */
+if (tempVal >= 35) tipText = randomTip(healthTips.heat);
+if (tempVal <= 10) tipText = randomTip(healthTips.cold);
+
+/* Show tip */
+document.getElementById("healthTip").textContent = tipText;
+
+</script>
+
+</body>
+</html>
